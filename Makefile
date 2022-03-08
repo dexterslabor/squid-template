@@ -32,10 +32,9 @@ kusamaVersions.json:
 
 explore:
 	@npx squid-substrate-metadata-explorer \
-		--chain wss://kusama-rpc.polkadot.io \
-		--archive https://kusama.indexer.gc.subsquid.io/v4/graphql \
-		--out kusamaVersions.json
-
+		--chain wss://archive.snakenet.hydradx.io \
+		--archive http://snakenet-indexer.hydration.cloud:4010/v1/graphql \
+		--out hydradxVersions.json
 
 up:
 	@docker-compose up -d

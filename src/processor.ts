@@ -4,93 +4,64 @@ import {
   Store,
   SubstrateProcessor,
 } from "@subsquid/substrate-processor";
-import { Account, HistoricalBalance } from "./model";
+import { Account } from "./model";
 import { BalancesTransferEvent } from "./types/events";
+import { getOrCreate } from "./utils/getOrCreate";
+// TODO: include types.json from root to avoid duplicate
+import oldTypesBundle from "./types.json";
 
-const processor = new SubstrateProcessor("kusama_balances");
+// TODO: extract to .env
+const treasuryAddress = "7L53bUTBopuwFt3mKUfmkzgGLayYa1Yvn1hAg9v5UMrQzTfh";
+const galacticCouncilAddress =
+  "7HqdGVRB4MXz1osLR77mfWoo536cWasTYsuAbVuicHdiKQXf";
+const hydraPrefix = 63;
 
-processor.setTypesBundle("kusama");
+const processor = new SubstrateProcessor("treasury-spend");
+processor.setTypesBundle(oldTypesBundle);
 processor.setBatchSize(500);
 
 processor.setDataSource({
-  archive: "https://kusama.indexer.gc.subsquid.io/v4/graphql",
-  chain: "wss://kusama-rpc.polkadot.io",
+  archive: "http://snakenet-indexer.hydration.cloud:4010/v1/graphql",
+  chain: "wss://archive.snakenet.hydradx.io",
 });
 
 processor.addEventHandler("balances.Transfer", async (ctx) => {
-  const transfer = getTransferEvent(ctx);
-  const tip = ctx.extrinsic?.tip || 0n;
-  const from = ss58.codec("kusama").encode(transfer.from);
-  const to = ss58.codec("kusama").encode(transfer.to);
+  const transferEvent = getTransferEventParameters(ctx);
 
-  const fromAcc = await getOrCreate(ctx.store, Account, from);
-  fromAcc.balance = fromAcc.balance || 0n;
-  fromAcc.balance -= transfer.amount;
-  fromAcc.balance -= tip;
-  await ctx.store.save(fromAcc);
+  const treasuryIsSender = transferEvent.from === treasuryAddress;
+  const excludedRecipient = transferEvent.to !== galacticCouncilAddress;
 
-  const toAcc = await getOrCreate(ctx.store, Account, to);
-  toAcc.balance = toAcc.balance || 0n;
-  toAcc.balance += transfer.amount;
-  await ctx.store.save(toAcc);
+  if (treasuryIsSender && excludedRecipient) {
+    console.log("Treasury spent at block height:", ctx.block.height);
 
-  await ctx.store.save(
-    new HistoricalBalance({
-      id: `${ctx.event.id}-to`,
-      account: fromAcc,
-      balance: fromAcc.balance,
-      date: new Date(ctx.block.timestamp),
-    })
-  );
+    const treasuryAccount = await getOrCreate(
+      ctx.store,
+      Account,
+      transferEvent.from
+    );
+    treasuryAccount.totalSpent = treasuryAccount.totalSpent || 0n;
+    treasuryAccount.totalSpent += transferEvent.amount;
 
-  await ctx.store.save(
-    new HistoricalBalance({
-      id: `${ctx.event.id}-from`,
-      account: toAcc,
-      balance: toAcc.balance,
-      date: new Date(ctx.block.timestamp),
-    })
-  );
+    await ctx.store.save(treasuryAccount);
+  }
 });
 
 processor.run();
 
 interface TransferEvent {
-  from: Uint8Array;
-  to: Uint8Array;
+  from: string;
+  to: string;
   amount: bigint;
 }
 
-function getTransferEvent(ctx: EventHandlerContext): TransferEvent {
+const getTransferEventParameters = (
+  ctx: EventHandlerContext
+): TransferEvent => {
   const event = new BalancesTransferEvent(ctx);
-  if (event.isV1020) {
-    const [from, to, amount] = event.asV1020;
-    return { from, to, amount };
-  }
-  if (event.isV1050) {
-    const [from, to, amount] = event.asV1050;
-    return { from, to, amount };
-  }
-  return event.asLatest;
-}
 
-async function getOrCreate<T extends { id: string }>(
-  store: Store,
-  EntityConstructor: EntityConstructor<T>,
-  id: string
-): Promise<T> {
-  let entity = await store.get<T>(EntityConstructor, {
-    where: { id },
-  });
-
-  if (entity == null) {
-    entity = new EntityConstructor();
-    entity.id = id;
-  }
-
-  return entity;
-}
-
-type EntityConstructor<T> = {
-  new (...args: any[]): T;
+  return {
+    from: ss58.codec(hydraPrefix).encode(event.asV13[0]),
+    to: ss58.codec(hydraPrefix).encode(event.asV13[1]),
+    amount: event.asV13[2],
+  };
 };
