@@ -42,6 +42,11 @@ processor.addEventHandler("balances.Transfer", async (ctx) => {
     treasuryAccount.totalSpent = treasuryAccount.totalSpent || 0n;
     treasuryAccount.totalSpent += transferEvent.amount;
 
+    treasuryAccount.totalTransactions = treasuryAccount.totalTransactions || 0n;
+    treasuryAccount.totalTransactions += 1n;
+
+    treasuryAccount.lastBlock = BigInt(ctx.block.height);
+
     await ctx.store.save(treasuryAccount);
   }
 });

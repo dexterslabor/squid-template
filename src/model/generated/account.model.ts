@@ -15,4 +15,10 @@ export class Account {
 
   @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
   totalSpent!: bigint
+
+  @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+  lastBlock!: bigint
+
+  @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+  totalTransactions!: bigint
 }

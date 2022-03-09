@@ -8,6 +8,7 @@
     "schema:reset": "",
     "processor:migrate": "echo skip",
     "processor:start": "node lib/processor.js",
+    "clean-and-setup": "./scripts/clean-and-setup.sh",
     "query-node:start": "squid-graphql-server"
   },
   "dependencies": {

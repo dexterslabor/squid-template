@@ -1,10 +1,17 @@
-process: migrate
+process:
 	@node -r dotenv/config lib/processor.js
 
+reset-db:
+	bash ./scripts/reset-db.sh
 
 serve:
 	@npx squid-graphql-server
 
+create:
+	@npx sqd db create
+
+drop:
+	@npx sqd db drop
 
 migrate:
 	@npx sqd db:migrate
@@ -12,7 +19,6 @@ migrate:
 
 migration:
 	@npx sqd db:create-migration Data
-
 
 build:
 	@npm run build
@@ -22,11 +28,11 @@ codegen:
 	@npx sqd codegen
 
 
-typegen: kusamaVersions.json
+typegen: hydradxVersions.json
 	@npx squid-substrate-typegen typegen.json
 
 
-kusamaVersions.json:
+hydradxVersions.json:
 	@make explore
 
 
